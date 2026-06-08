@@ -5,9 +5,9 @@ import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export function TrackingSnippet({ trackingId }: { trackingId: string }) {
-  const snippet = `<script src="/static/insights.js" data-project-id="${trackingId}" defer></script>`;
-  return <CopyBlock label="Install snippet" code={snippet} />;
+export function TrackingSnippet({ trackingId, src, label = "Install snippet" }: { trackingId: string; src: string; label?: string }) {
+  const snippet = `<script src="${src}" data-project-id="${trackingId}" defer></script>`;
+  return <CopyBlock label={label} code={snippet} />;
 }
 
 export function CopyBlock({ label, code }: { label?: string; code: string }) {
