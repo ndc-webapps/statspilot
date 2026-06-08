@@ -67,10 +67,26 @@ export async function getProjectStats(
     const owned = await prisma.project.findFirst({ where: { id: projectId, ownerId: userId }, select: { id: true } });
     if (!owned) return null;
     const stats = await queryProjectStats(projectId, range);
-    return stats ?? generateDemoStats(projectId, range);
+    return stats ?? buildEmptyStats(projectId);
   } catch {
     return null;
   }
+}
+
+/** Real project with no recorded events yet — show actual zeros, never fabricated numbers. */
+function buildEmptyStats(projectId: string): ProjectStats {
+  return {
+    projectId,
+    isDemo: false,
+    totals: { visits: 0, uniqueVisitors: 0, pageViews: 0, bounceRate: 0, avgSessionSeconds: 0, realtimeUsers: 0 },
+    trend: { visits: 0, uniqueVisitors: 0, pageViews: 0, bounceRate: 0 },
+    timeseries: [],
+    topPages: [],
+    topReferrers: [],
+    devices: [],
+    browsers: [],
+    countries: [],
+  };
 }
 
 /** Real aggregation from stored events. Returns null if the project has no recorded activity yet. */
