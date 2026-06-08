@@ -48,8 +48,8 @@ export default async function TrackingPage({ params }: { params: Promise<{ id: s
               Privacy browsers and ad blockers (Brave Shields, uBlock + EasyPrivacy, Safari ITP) silently drop
               requests to third-party analytics domains like <code className="rounded bg-neutral-100 px-1 py-0.5 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-50">{host}</code> —
               with no error, just missing data. Add a rewrite so the tracking calls look like they come from{" "}
-              <span className="font-medium text-neutral-700 dark:text-neutral-100">your own domain</span> instead, and
-              they&apos;ll never be blocked. Pick whichever matches your project:
+              <span className="font-medium text-neutral-700 dark:text-neutral-100">your own domain</span>{" "}
+              instead, and they&apos;ll never be blocked. Pick whichever matches your project:
             </p>
             <CopyBlock
               label="Next.js — next.config.js"
