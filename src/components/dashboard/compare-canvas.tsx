@@ -261,15 +261,13 @@ function ResizeHandle({
       aria-label={axis === "x" ? "Resize project columns" : "Resize project rows"}
       onPointerDown={onPointerDown}
       className={cn(
-        "absolute z-10 items-center justify-center rounded-full bg-white/80 text-neutral-400 opacity-60 shadow-sm ring-1 ring-neutral-200 backdrop-blur transition-opacity hover:opacity-100 focus:opacity-100 dark:bg-neutral-900/80 dark:text-neutral-500 dark:ring-neutral-700",
+        "absolute z-10 items-center justify-center bg-transparent",
         axis === "x"
           ? "top-0 h-full w-5 -translate-x-1/2 cursor-col-resize"
           : "left-0 h-5 w-full -translate-y-1/2 cursor-row-resize",
         className
       )}
       style={axis === "x" ? { left: `calc(${value}% + 6px)` } : { top: `calc(${value}% + 6px)` }}
-    >
-      <span className={cn("block rounded-full bg-neutral-300 dark:bg-neutral-600", axis === "x" ? "h-12 w-1" : "h-1 w-12")} />
-    </button>
+    />
   );
 }
