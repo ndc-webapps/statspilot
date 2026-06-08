@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, KeyRound, Zap } from "lucide-react";
+import { ArrowLeft, KeyRound, ShieldCheck, Zap } from "lucide-react";
 import { auth } from "@/auth";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,14 +41,39 @@ export default async function TrackingPage({ params }: { params: Promise<{ id: s
         <Card>
           <CardContent className="flex flex-col gap-4 pt-6">
             <div className="flex items-center gap-2 text-sm font-medium text-neutral-800 dark:text-neutral-100">
+              <ShieldCheck className="h-4 w-4 text-neutral-400 dark:text-neutral-300" />
+              1. Connect your domain (do this first)
+            </div>
+            <p className="text-xs text-neutral-500 dark:text-neutral-300">
+              Privacy browsers and ad blockers (Brave Shields, uBlock + EasyPrivacy, Safari ITP) silently drop
+              requests to third-party analytics domains like <code className="rounded bg-neutral-100 px-1 py-0.5 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-50">{host}</code> —
+              with no error, just missing data. Add a rewrite so the tracking calls look like they come from{" "}
+              <span className="font-medium text-neutral-700 dark:text-neutral-100">your own domain</span> instead, and
+              they&apos;ll never be blocked. Pick whichever matches your project:
+            </p>
+            <CopyBlock
+              label="Next.js — next.config.js"
+              code={`async rewrites() {\n  return [\n    { source: "/static/insights.js", destination: "${origin}/script.js" },\n    { source: "/api/collect", destination: "${origin}/api/collect" },\n  ];\n}`}
+            />
+            <CopyBlock
+              label="Static site / other framework — vercel.json"
+              code={`{\n  "rewrites": [\n    { "source": "/static/insights.js", "destination": "${origin}/script.js" },\n    { "source": "/api/collect", "destination": "${origin}/api/collect" }\n  ]\n}`}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex flex-col gap-4 pt-6">
+            <div className="flex items-center gap-2 text-sm font-medium text-neutral-800 dark:text-neutral-100">
               <Zap className="h-4 w-4 text-neutral-400 dark:text-neutral-300" />
-              1. Add the script to your site
+              2. Add the script to your site
             </div>
             <p className="text-xs text-neutral-500 dark:text-neutral-300">
               Paste this right before the closing <code className="rounded bg-neutral-100 px-1 py-0.5 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-50">&lt;/body&gt;</code> tag.
               It&apos;s ~1KB, loads with <code className="rounded bg-neutral-100 px-1 py-0.5 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-50">defer</code>, and never blocks rendering.
+              The path matches the rewrite above, so it loads from your own domain.
             </p>
-            <TrackingSnippet trackingId={project.trackingId} origin={origin} />
+            <TrackingSnippet trackingId={project.trackingId} />
           </CardContent>
         </Card>
 
@@ -56,7 +81,7 @@ export default async function TrackingPage({ params }: { params: Promise<{ id: s
           <CardContent className="flex flex-col gap-4 pt-6">
             <div className="flex items-center gap-2 text-sm font-medium text-neutral-800 dark:text-neutral-100">
               <KeyRound className="h-4 w-4 text-neutral-400 dark:text-neutral-300" />
-              2. Your project ID
+              3. Your project ID
             </div>
             <p className="text-xs text-neutral-500 dark:text-neutral-300">
               Public identifier embedded in the snippet above — safe to expose client-side. It only allows write
@@ -70,7 +95,7 @@ export default async function TrackingPage({ params }: { params: Promise<{ id: s
           <CardContent className="flex flex-col gap-3 pt-6">
             <div className="flex items-center gap-2 text-sm font-medium text-neutral-800 dark:text-neutral-100">
               <Zap className="h-4 w-4 text-neutral-400 dark:text-neutral-300" />
-              3. Track custom events (optional)
+              4. Track custom events (optional)
             </div>
             <p className="text-xs text-neutral-500 dark:text-neutral-300">
               Once the snippet is installed, fire custom events from anywhere in your app:
