@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function TrackingSnippet({ trackingId, origin }: { trackingId: string; origin: string }) {
-  const snippet = `<script src="${origin}/tracker.js" data-project-id="${trackingId}" defer></script>`;
+  const snippet = `<script src="${origin}/script.js" data-project-id="${trackingId}" defer></script>`;
   return <CopyBlock label="Install snippet" code={snippet} />;
 }
 
