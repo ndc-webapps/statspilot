@@ -16,7 +16,18 @@ export const dynamic = "force-static";
  */
 const SCRIPT = `(function () {
   try {
+    // document.currentScript is null for scripts injected dynamically (e.g. next/script,
+    // GTM, async loaders) — fall back to locating our own <script data-project-id> tag.
     var script = document.currentScript;
+    if (!script || !script.getAttribute("data-project-id")) {
+      var candidates = document.querySelectorAll("script[data-project-id]");
+      for (var i = 0; i < candidates.length; i++) {
+        if (/\/script\.js(\?|$)/.test(candidates[i].src)) {
+          script = candidates[i];
+          break;
+        }
+      }
+    }
     if (!script) return;
     var projectId = script.getAttribute("data-project-id");
     if (!projectId) return;
