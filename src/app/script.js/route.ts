@@ -4,11 +4,15 @@ export const runtime = "nodejs";
 export const dynamic = "force-static";
 
 /**
- * Lightweight tracking script served at /tracker.js.
- * Usage: <script src="https://YOUR_DOMAIN/tracker.js" data-project-id="PROJECT_ID" defer></script>
+ * Lightweight tracking script served at /script.js.
+ * Usage: <script src="https://YOUR_DOMAIN/script.js" data-project-id="PROJECT_ID" defer></script>
  *
  * Design goals: tiny payload, no blocking work, no third-party cookies,
  * resilient to SPA route changes (patches pushState/replaceState).
+ *
+ * Named "script.js" / "/api/collect" (not "tracker.js" / "/api/track") because
+ * ad-blockers (Brave Shields, uBlock + EasyPrivacy, Safari ITP) pattern-match
+ * "tracker"/"track" in URLs and silently drop the request.
  */
 const SCRIPT = `(function () {
   try {
@@ -17,7 +21,7 @@ const SCRIPT = `(function () {
     var projectId = script.getAttribute("data-project-id");
     if (!projectId) return;
 
-    var endpoint = new URL("/api/track", script.src).toString();
+    var endpoint = new URL("/api/collect", script.src).toString();
     var STORAGE_VISITOR = "sp_visitor_id";
     var STORAGE_SESSION = "sp_session_id";
     var STORAGE_SESSION_TS = "sp_session_ts";
