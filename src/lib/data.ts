@@ -160,7 +160,7 @@ async function queryProjectStats(projectId: string, range: DateRange): Promise<P
     return [...totals.entries()]
       .map(([label, value]) => ({ label, value, percent: Math.round((value / sum) * 1000) / 10 }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 8);
+      .slice(0, 50);
   };
 
   const pathCounts = new Map<string, number>();
@@ -172,7 +172,7 @@ async function queryProjectStats(projectId: string, range: DateRange): Promise<P
       percent: Math.round((value / (pageViewRows.length || 1)) * 1000) / 10,
     }))
     .sort((a, b) => b.value - a.value)
-    .slice(0, 8);
+    .slice(0, 50);
 
   return {
     projectId,
