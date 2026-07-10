@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { rangeFromPreset } from "@/lib/date-range";
 import type { DateRange, DateRangeKey, PanelLayout } from "@/types/analytics";
 
@@ -30,19 +30,27 @@ export function useCanvas(initialProjectIds: string[]) {
   const [panels, setPanels] = useState<CanvasPanel[]>(
     initialProjectIds.slice(0, MAX_PANELS).map((projectId) => ({ projectId, range: rangeFromPreset("7d") }))
   );
-  const hydrated = useRef(false);
+  const [storageReady, setStorageReady] = useState(false);
 
   // Restore the last compare-canvas layout from this browser once on mount.
   useEffect(() => {
-    if (hydrated.current) return;
-    hydrated.current = true;
-    const stored = loadStoredPanels();
-    if (stored) setPanels(stored);
+    let cancelled = false;
+
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      const stored = loadStoredPanels();
+      if (stored) setPanels(stored);
+      setStorageReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Persist the layout (which projects, in what order, with which date range) so it survives reloads.
   useEffect(() => {
-    if (!hydrated.current) return;
+    if (!storageReady) return;
     try {
       const toStore: StoredPanel[] = panels.map((p) => ({
         projectId: p.projectId,
@@ -52,7 +60,7 @@ export function useCanvas(initialProjectIds: string[]) {
     } catch {
       /* ignore storage failures (e.g. private browsing) */
     }
-  }, [panels]);
+  }, [panels, storageReady]);
   const [maximizedId, setMaximizedId] = useState<string | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 

@@ -1,8 +1,8 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/auth.config";
 
-// Use the auth middleware directly so the `authorized` callback in authConfig
-// performs the redirect. (Wrapping it in a custom function would bypass that gate.)
+// Cloudflare OpenNext currently supports Edge Middleware, while Next 16 Proxy
+// runs on Node.js. Keep this file as middleware until Cloudflare supports Node Proxy.
 export default NextAuth(authConfig).auth;
 
 export const config = {

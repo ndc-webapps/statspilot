@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import { disconnectPrisma, getPrisma } from "@/lib/prisma";
 
 const createProjectSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(80),
@@ -16,6 +16,7 @@ const createProjectSchema = z.object({
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const prisma = getPrisma();
   if (!prisma) return NextResponse.json([], { status: 200 });
   try {
     const projects = await prisma.project.findMany({
@@ -25,6 +26,8 @@ export async function GET() {
     return NextResponse.json(projects);
   } catch {
     return NextResponse.json([], { status: 200 });
+  } finally {
+    await disconnectPrisma(prisma);
   }
 }
 
@@ -32,6 +35,7 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const prisma = getPrisma();
   if (!prisma) {
     return NextResponse.json(
       { error: "Database is not configured. Set DATABASE_URL to create real projects." },
@@ -52,5 +56,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(project, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Could not reach the database. Check DATABASE_URL." }, { status: 503 });
+  } finally {
+    await disconnectPrisma(prisma);
   }
 }

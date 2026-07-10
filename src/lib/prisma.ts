@@ -1,19 +1,20 @@
 import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-declare global {
-  var __prisma: PrismaClient | undefined;
-}
+export type AppPrismaClient = PrismaClient;
 
-function createClient() {
+export function getPrisma() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) return null;
-  const adapter = new PrismaPg({ connectionString });
+  const adapter = new PrismaPg({ connectionString, maxUses: 1 });
   return new PrismaClient({ adapter });
 }
 
-export const prisma = global.__prisma ?? createClient();
-
-if (process.env.NODE_ENV !== "production") {
-  global.__prisma = prisma ?? undefined;
+export async function disconnectPrisma(prisma: AppPrismaClient | null) {
+  if (!prisma) return;
+  try {
+    await prisma.$disconnect();
+  } catch {
+    // Ignore cleanup failures; the request outcome is already decided.
+  }
 }

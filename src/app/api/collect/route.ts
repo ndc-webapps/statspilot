@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { disconnectPrisma, getPrisma } from "@/lib/prisma";
 import { isRateLimited } from "@/lib/rate-limit";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -48,10 +48,6 @@ function classifyBrowser(ua: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  if (!prisma) {
-    return NextResponse.json({ error: "Tracking is not configured." }, { status: 503, headers: corsHeaders() });
-  }
-
   const ip = clientIp(req);
   if (isRateLimited(ip)) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429, headers: corsHeaders() });
@@ -65,47 +61,56 @@ export async function POST(req: NextRequest) {
 
   const { projectId, visitorId, sessionId, type } = parsed.data;
 
-  const project = await prisma.project.findUnique({ where: { trackingId: projectId } });
-  if (!project || project.status !== "ACTIVE") {
-    return NextResponse.json({ ok: true }, { headers: corsHeaders() });
+  const prisma = getPrisma();
+  if (!prisma) {
+    return NextResponse.json({ error: "Tracking is not configured." }, { status: 503, headers: corsHeaders() });
   }
 
-  const ua = req.headers.get("user-agent") ?? "";
-  const country = req.headers.get("x-vercel-ip-country") ?? req.headers.get("cf-ipcountry") ?? null;
-  const now = new Date();
+  try {
+    const project = await prisma.project.findUnique({ where: { trackingId: projectId } });
+    if (!project || project.status !== "ACTIVE") {
+      return NextResponse.json({ ok: true }, { headers: corsHeaders() });
+    }
 
-  const session = await prisma.session.upsert({
-    where: { id: sessionId },
-    update: { lastSeenAt: now },
-    create: {
-      id: sessionId,
-      projectId: project.id,
-      visitorId,
-      referrer: parsed.data.referrer?.slice(0, 512) || null,
-      device: classifyDevice(ua),
-      browser: classifyBrowser(ua),
-      country,
-      startedAt: now,
-      lastSeenAt: now,
-    },
-  });
+    const ua = req.headers.get("user-agent") ?? "";
+    const country = req.headers.get("x-vercel-ip-country") ?? req.headers.get("cf-ipcountry") ?? null;
+    const now = new Date();
 
-  if (type === "pageview" && parsed.data.path) {
-    await prisma.pageView.create({
-      data: { projectId: project.id, sessionId: session.id, path: parsed.data.path.slice(0, 512) },
-    });
-  }
-
-  if (type === "event" && parsed.data.name) {
-    await prisma.event.create({
-      data: {
+    const session = await prisma.session.upsert({
+      where: { id: sessionId },
+      update: { lastSeenAt: now },
+      create: {
+        id: sessionId,
         projectId: project.id,
         visitorId,
-        name: parsed.data.name.slice(0, 120),
-        metadata: parsed.data.metadata as Prisma.InputJsonValue | undefined,
+        referrer: parsed.data.referrer?.slice(0, 512) || null,
+        device: classifyDevice(ua),
+        browser: classifyBrowser(ua),
+        country,
+        startedAt: now,
+        lastSeenAt: now,
       },
     });
-  }
 
-  return NextResponse.json({ ok: true }, { headers: corsHeaders() });
+    if (type === "pageview" && parsed.data.path) {
+      await prisma.pageView.create({
+        data: { projectId: project.id, sessionId: session.id, path: parsed.data.path.slice(0, 512) },
+      });
+    }
+
+    if (type === "event" && parsed.data.name) {
+      await prisma.event.create({
+        data: {
+          projectId: project.id,
+          visitorId,
+          name: parsed.data.name.slice(0, 120),
+          metadata: parsed.data.metadata as Prisma.InputJsonValue | undefined,
+        },
+      });
+    }
+
+    return NextResponse.json({ ok: true }, { headers: corsHeaders() });
+  } finally {
+    await disconnectPrisma(prisma);
+  }
 }

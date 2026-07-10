@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { disconnectPrisma, getPrisma, type AppPrismaClient } from "@/lib/prisma";
 import { DEMO_PROJECTS } from "@/lib/demo/projects";
 import { generateDemoStats } from "@/lib/demo/stats";
 import type { DateRange, ProjectStats, ProjectSummary } from "@/types/analytics";
@@ -11,6 +11,7 @@ import type { DateRange, ProjectStats, ProjectSummary } from "@/types/analytics"
  */
 
 export async function getProjects(userId: string): Promise<ProjectSummary[]> {
+  const prisma = getPrisma();
   if (!prisma) return DEMO_PROJECTS;
 
   try {
@@ -29,12 +30,15 @@ export async function getProjects(userId: string): Promise<ProjectSummary[]> {
     }));
   } catch {
     return DEMO_PROJECTS;
+  } finally {
+    await disconnectPrisma(prisma);
   }
 }
 
 export async function getProject(id: string, userId: string): Promise<ProjectSummary | null> {
   const demo = DEMO_PROJECTS.find((p) => p.id === id);
   if (demo) return demo;
+  const prisma = getPrisma();
   if (!prisma) return null;
 
   try {
@@ -50,6 +54,8 @@ export async function getProject(id: string, userId: string): Promise<ProjectSum
     };
   } catch {
     return null;
+  } finally {
+    await disconnectPrisma(prisma);
   }
 }
 
@@ -60,16 +66,19 @@ export async function getProjectStats(
 ): Promise<ProjectStats | null> {
   const isDemoProject = DEMO_PROJECTS.some((p) => p.id === projectId);
   if (isDemoProject) return generateDemoStats(projectId, range);
+  const prisma = getPrisma();
   if (!prisma) return generateDemoStats(projectId, range);
 
   // Enforce ownership: never return stats for a project the user doesn't own.
   try {
     const owned = await prisma.project.findFirst({ where: { id: projectId, ownerId: userId }, select: { id: true } });
     if (!owned) return null;
-    const stats = await queryProjectStats(projectId, range);
+    const stats = await queryProjectStats(prisma, projectId, range);
     return stats ?? buildEmptyStats(projectId);
   } catch {
     return null;
+  } finally {
+    await disconnectPrisma(prisma);
   }
 }
 
@@ -90,9 +99,11 @@ function buildEmptyStats(projectId: string): ProjectStats {
 }
 
 /** Real aggregation from stored events. Returns null if the project has no recorded activity yet. */
-async function queryProjectStats(projectId: string, range: DateRange): Promise<ProjectStats | null> {
-  if (!prisma) return null;
-
+async function queryProjectStats(
+  prisma: AppPrismaClient,
+  projectId: string,
+  range: DateRange
+): Promise<ProjectStats | null> {
   const from = new Date(`${range.from}T00:00:00.000Z`);
   const to = new Date(`${range.to}T23:59:59.999Z`);
 

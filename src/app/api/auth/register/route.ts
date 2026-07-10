@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { disconnectPrisma, getPrisma } from "@/lib/prisma";
 import { isRateLimited } from "@/lib/rate-limit";
 
 function clientIp(req: NextRequest): string {
@@ -26,10 +26,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Too many attempts. Please try again later." }, { status: 429 });
   }
 
-  if (!prisma) {
-    return NextResponse.json({ error: "Database is not configured. Set DATABASE_URL." }, { status: 503 });
-  }
-
   const body = await req.json().catch(() => null);
   const parsed = registerSchema.safeParse(body);
   if (!parsed.success) {
@@ -37,6 +33,10 @@ export async function POST(req: NextRequest) {
   }
 
   const email = parsed.data.email.toLowerCase();
+  const prisma = getPrisma();
+  if (!prisma) {
+    return NextResponse.json({ error: "Database is not configured. Set DATABASE_URL." }, { status: 503 });
+  }
 
   try {
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -52,5 +52,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ id: user.id, email: user.email }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Could not reach the database. Check DATABASE_URL." }, { status: 503 });
+  } finally {
+    await disconnectPrisma(prisma);
   }
 }

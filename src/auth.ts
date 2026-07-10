@@ -4,7 +4,7 @@ import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { authConfig } from "@/auth.config";
-import { prisma } from "@/lib/prisma";
+import { disconnectPrisma, getPrisma } from "@/lib/prisma";
 import { isRateLimited } from "@/lib/rate-limit";
 
 function ipFromRequest(req: Request | undefined): string {
@@ -19,7 +19,7 @@ const credentialsSchema = z.object({
 });
 
 // Google is only enabled when its credentials are configured, so a missing key
-// never breaks the app — the button just won't be offered (see googleEnabled).
+// never breaks the app; the button just will not be offered.
 export const googleEnabled = Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
 
 const providers: NextAuthConfig["providers"] = [];
@@ -33,22 +33,31 @@ providers.push(
     credentials: { email: {}, password: {} },
     async authorize(raw, request) {
       const parsed = credentialsSchema.safeParse(raw);
-      if (!parsed.success || !prisma) return null;
+      if (!parsed.success) return null;
 
       const { email, password } = parsed.data;
 
       // Throttle password attempts per IP to slow brute force.
       if (isRateLimited(`login:${ipFromRequest(request)}`, 10)) return null;
 
-      const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+      const prisma = getPrisma();
+      if (!prisma) return null;
 
-      // No account, or an OAuth-only account (no password set) — reject password login.
-      if (!user || !user.passwordHash) return null;
+      try {
+        const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
 
-      const valid = await bcrypt.compare(password, user.passwordHash);
-      if (!valid) return null;
+        // No account, or an OAuth-only account with no password set.
+        if (!user || !user.passwordHash) return null;
 
-      return { id: user.id, email: user.email, name: user.name };
+        const valid = await bcrypt.compare(password, user.passwordHash);
+        if (!valid) return null;
+
+        return { id: user.id, email: user.email, name: user.name };
+      } catch {
+        return null;
+      } finally {
+        await disconnectPrisma(prisma);
+      }
     },
   })
 );
@@ -69,8 +78,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
-    // Resolve the database user id into the JWT. Runs in the Node auth route on
-    // sign-in (when `account` is present); subsequent edge calls keep token.id.
+    // Resolve the database user id into the JWT. This runs in the auth route on
+    // sign-in; subsequent middleware calls keep token.id.
     async jwt({ token, user, account }) {
       if (account?.provider === "credentials" && user?.id) {
         token.id = user.id;
@@ -81,6 +90,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = user.email.toLowerCase();
         token.id = fallbackOAuthUserId(email);
 
+        const prisma = getPrisma();
         if (prisma) {
           try {
             const dbUser = await prisma.user.upsert({
@@ -96,6 +106,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             token.id = dbUser.id;
           } catch (error) {
             console.error("Google sign-in could not persist the user. Falling back to demo-only session.", error);
+          } finally {
+            await disconnectPrisma(prisma);
           }
         }
       }
